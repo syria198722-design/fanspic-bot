@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم YARD | Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Kufi+Arabic:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --gold: #ffcc00;
+            --dark: #0a0a0e;
+            --card: #121218;
+            --border: rgba(255,255,255,0.07);
+            --text: #ffffff;
+            --dim: #888;
+            --sidebar-w: 240px;
+            --topbar-h: 60px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit','Noto Kufi Arabic',sans-serif; background: var(--dark); color: var(--text); direction: rtl; overflow-x: hidden; }
+
+        /* ───── Mobile Top Bar ───── */
+        .mobile-topbar {
+            display: none;
+            position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h);
+            background: var(--card); border-bottom: 1px solid var(--border);
+            align-items: center; justify-content: space-between;
+            padding: 0 16px; z-index: 200;
+        }
+        .mobile-topbar .mobile-logo { font-size: 1.1rem; font-weight: 800; color: var(--gold); }
+        .hamburger {
+            background: none; border: none; color: #fff; font-size: 1.4rem;
+            cursor: pointer; padding: 8px; border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .hamburger:hover { background: rgba(255,255,255,0.08); }
+
+        /* ───── Sidebar Overlay (mobile) ───── */
+        .sidebar-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6); z-index: 150;
+        }
+        .sidebar-overlay.active { display: block; }
+
+        /* ───── Login Screen ───── */
+        #login-screen {
+            position: fixed; inset: 0; background: var(--dark);
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
+        }
+        .login-box {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 24px; padding: 50px 40px; text-align: center; width: 360px;
+        }
+        .login-box i { font-size: 3rem; color: var(--gold); margin-bottom: 20px; }
+        .login-box h2 { font-size: 1.4rem; margin-bottom: 8px; }
+        .login-box p { color: var(--dim); font-size: 0.85rem; margin-bottom: 30px; }
+        .login-box input {
+            width: 100%; padding: 14px; background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border); border-radius: 12px;
+            color: #fff; font-size: 1rem; text-align: center;
+            letter-spacing: 4px; margin-bottom: 15px;
+        }
+        .btn-gold {
+            background: var(--gold); color: #000; border: none;
+            padding: 14px 30px; border-radius: 12px; font-weight: 800;
+            font-size: 1rem; cursor: pointer; width: 100%;
+        }
+        .btn-ghost {
+            background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--border);
+            padding: 10px 20px; border-radius: 10px; font-weight: 600;
+            font-size: 0.85rem; cursor: pointer;
+        }
+        .btn-danger { background: #ff4444; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; }
+
+        /* ───── Layout ───── */
+        .admin-layout { display: flex; min-height: 100vh; }
+
+        /* ───── Sidebar ───── */
+        .sidebar {
+            width: var(--sidebar-w); background: var(--card);
+            border-left: 1px solid var(--border);
+            display: flex; flex-direction: column; padding: 25px 0;
+            position: fixed; height: 100vh; z-index: 160;
+            transition: transform 0.3s ease;
+        }
+        .sidebar-logo {
+            padding: 0 20px 30px; border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+        .sidebar-logo span { font-size: 1.3rem; font-weight: 800; color: var(--gold); }
+        .sidebar-logo small { display: block; color: var(--dim); font-size: 0.7rem; margin-top: 3px; }
+
+        .sidebar-nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 5px; }
+        .nav-btn {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 15px; border-radius: 12px; border: none;
+            background: none; color: var(--dim); font-size: 0.9rem;
+            cursor: pointer; width: 100%; transition: 0.2s;
+        }
+        .nav-btn i { font-size: 1rem; width: 20px; }
+        .nav-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .nav-btn.active { background: rgba(255,204,0,0.1); color: var(--gold); font-weight: 700; }
+
+        .sidebar-footer {
+            padding: 20px; border-top: 1px solid var(--border);
+            color: var(--dim); font-size: 0.7rem; text-align: center;
+        }
+
+        /* ───── Main Content ───── */
+        .main-content {
+            margin-right: var(--sidebar-w); flex: 1;
+            padding: 30px; overflow-y: auto; min-width: 0;
+        }
+
+        .page-header { margin-bottom: 30px; }
+        .page-header h1 { font-size: 1.6rem; font-weight: 800; }
+        .page-header p { color: var(--dim); font-size: 0.85rem; margin-top: 5px; }
+
+        /* ───── Stats Cards ───── */
+        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 30px; }
+        .stat-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 20px; padding: 25px;
+            display: flex; align-items: center; gap: 18px;
+        }
+        .stat-icon {
+            width: 55px; height: 55px; border-radius: 15px;
+            background: rgba(255,204,0,0.1);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem; color: var(--gold); flex-shrink: 0;
+        }
+        .stat-info small { color: var(--dim); font-size: 0.75rem; display: block; }
+        .stat-info strong { font-size: 1.8rem; font-weight: 800; }
+
+        /* ───── Tables ───── */
+        .section-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 20px; overflow: hidden; margin-bottom: 25px;
+        }
+        .section-head {
+            padding: 20px 25px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .section-head h3 { font-size: 1rem; font-weight: 700; }
+
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { 
+            padding: 12px 20px; text-align: right; font-size: 0.75rem;
+            color: var(--dim); font-weight: 600; border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+        }
+        .data-table td { 
+            padding: 14px 20px; font-size: 0.85rem; 
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+        }
+        .data-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+        .celeb-thumb { width: 45px; height: 55px; border-radius: 10px; object-fit: cover; }
+
+        .badge {
+            display: inline-block; padding: 4px 12px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 700;
+        }
+        .badge.pending { background: rgba(255,165,0,0.15); color: orange; }
+        .badge.approved { background: rgba(0,255,100,0.15); color: #00ff64; }
+        .badge.rejected { background: rgba(255,50,50,0.15); color: #ff5050; }
+
+        /* ───── Settings ───── */
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        /* ───── Table Scroll Wrapper ───── */
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .form-field { display: flex; flex-direction: column; gap: 8px; }
+        .form-field label { font-size: 0.8rem; color: var(--dim); font-weight: 600; }
+        .form-field input, .form-field textarea {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            border-radius: 12px; padding: 13px 15px;
+            color: #fff; font-size: 0.9rem; outline: none;
+        }
+        .form-field textarea { min-height: 90px; resize: vertical; }
+        .form-field input:focus, .form-field textarea:focus { border-color: var(--gold); }
+        .full-width { grid-column: 1 / -1; }
+
+        /* ───── Tab Contents ───── */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ───── Modal ───── */
+        .modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px); display: none;
+            align-items: center; justify-content: center; z-index: 999;
+        }
+        .modal.active { display: flex; }
+        .modal-box {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 24px; padding: 35px; width: 480px; max-width: 95vw;
+        }
+        .modal-box h3 { font-size: 1.1rem; margin-bottom: 25px; color: var(--gold); }
+        .modal-form { display: flex; flex-direction: column; gap: 15px; }
+        .modal-form input, .modal-form textarea {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            border-radius: 12px; padding: 13px 15px;
+            color: #fff; font-size: 0.9rem; outline: none; width: 100%;
+        }
+        .modal-form input:focus { border-color: var(--gold); }
+        .modal-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .modal-actions .btn-gold { flex: 1; }
+
+        /* ───── Responsive ───── */
+        @media (max-width: 768px) {
+            .mobile-topbar { display: flex; }
+            .sidebar { transform: translateX(100%); top: 0; }
+            .sidebar.open { transform: translateX(0); }
+            .admin-layout { display: block; }
+            .main-content {
+                margin-right: 0;
+                padding: 16px;
+                padding-top: calc(var(--topbar-h) + 16px);
+            }
+            .stats-row { grid-template-columns: 1fr; gap: 12px; }
+            .settings-grid { grid-template-columns: 1fr; }
+            .full-width { grid-column: 1 / -1; }
+            .stat-card { padding: 18px; }
+            .stat-info strong { font-size: 1.4rem; }
+            .page-header h1 { font-size: 1.3rem; }
+            .section-head { padding: 15px 16px; flex-wrap: wrap; gap: 10px; }
+            .data-table th, .data-table td { padding: 10px 12px; font-size: 0.78rem; }
+            .modal-box { padding: 24px 18px; }
+            .login-box { width: 90%; padding: 35px 24px; }
+        }
+        @media (min-width: 769px) and (max-width: 1024px) {
+            :root { --sidebar-w: 200px; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .main-content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+    <div class="login-box">
+        <i class="fas fa-shield-alt"></i>
+        <h2>لوحة التحكم</h2>
+        <p>أدخل كلمة سر المدير للوصول</p>
+        <input type="password" id="adminPass" placeholder="● ● ● ● ● ●" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="btn-gold" onclick="doLogin()"><i class="fas fa-unlock-alt"></i> دخول</button>
+    </div>
+</div>
+
+<!-- Dashboard -->
+<div class="admin-layout" id="dashboard" style="display:none;">
+    <!-- Mobile Top Bar -->
+    <div class="mobile-topbar" id="mobileTopbar">
+        <span class="mobile-logo">⚙️ YARD Admin</span>
+        <button class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()">
+            <i class="fas fa-bars" id="hamburgerIcon"></i>
+        </button>
+    </div>
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <span>⚙️ YARD Admin</span>
+            <small>لوحة التحكم الإدارية</small>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-btn active" data-tab="overview-tab"><i class="fas fa-th-large"></i> نظرة عامة</button>
+            <button class="nav-btn" data-tab="celebs-tab"><i class="fas fa-star"></i> المشاهير</button>
+            <button class="nav-btn" data-tab="orders-tab"><i class="fas fa-clipboard-list"></i> الطلبات</button>
+            <button class="nav-btn" data-tab="payments-tab"><i class="fas fa-wallet"></i> وسائل الدفع</button>
+            <button class="nav-btn" data-tab="settings-tab"><i class="fas fa-cog"></i> الإعدادات</button>
+        </nav>
+        <div class="sidebar-footer">YARD Exclusive &copy; 2026</div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+
+        <!-- Overview -->
+        <div id="overview-tab" class="tab-content active">
+            <div class="page-header">
+                <h1>👋 مرحباً بك</h1>
+                <p>هنا نظرة شاملة على أداء المنصة</p>
+            </div>
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    <div class="stat-info"><small>المشتركون</small><strong id="stat-users">0</strong></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
+                    <div class="stat-info"><small>إجمالي الطلبات</small><strong id="stat-orders">0</strong></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="stat-info"><small>إجمالي الإيرادات</small><strong id="stat-revenue">0 $</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Celebrities -->
+        <div id="celebs-tab" class="tab-content">
+            <div class="page-header">
+                <h1>⭐ إدارة المشاهير</h1>
+                <p>إضافة وتعديل وحذف محتوى المشاهير</p>
+            </div>
+            <div class="section-card">
+                <div class="section-head">
+                    <h3>قائمة المشاهير</h3>
+                    <button class="btn-gold" onclick="openModal('celebModal')"><i class="fas fa-plus"></i> إضافة جديد</button>
+                </div>
+                <div class="table-scroll">
+                <table class="data-table">
+                    <thead><tr><th>الصورة</th><th>الاسم</th><th>السعر</th><th>الإجراءات</th></tr></thead>
+                    <tbody id="celebList"></tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders -->
+        <div id="orders-tab" class="tab-content">
+            <div class="page-header">
+                <h1>📋 الطلبات</h1>
+                <p>متابعة وإدارة جميع طلبات العملاء</p>
+            </div>
+            <div class="section-card">
+                <div class="section-head"><h3>قائمة الطلبات</h3></div>
+                <div class="table-scroll">
+                <table class="data-table">
+                    <thead><tr><th>العميل</th><th>المشهور</th><th>وسيلة الدفع</th><th>الحالة</th><th>الإجراءات</th></tr></thead>
+                    <tbody id="ordersList"></tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payments -->
+        <div id="payments-tab" class="tab-content">
+            <div class="page-header">
+                <h1>💳 وسائل الدفع</h1>
+                <p>إدارة طرق الدفع المتاحة للعملاء</p>
+            </div>
+            <div class="section-card">
+                <div class="section-head">
+                    <h3>وسائل الدفع المضافة</h3>
+                    <button class="btn-gold" onclick="openModal('paymentModal')"><i class="fas fa-plus"></i> إضافة وسيلة</button>
+                </div>
+                <div class="table-scroll">
+                <table class="data-table">
+                    <thead><tr><th>الاسم</th><th>النوع</th><th>الحالة</th><th>حذف</th></tr></thead>
+                    <tbody id="paymentMethodList"></tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div id="settings-tab" class="tab-content">
+            <div class="page-header">
+                <h1>⚙️ إعدادات المنصة</h1>
+                <p>التحكم في روابط التواصل وبوابات الدفع</p>
+            </div>
+            <form id="globalSettingsForm">
+                <div class="section-card" style="padding: 30px; margin-bottom:20px;">
+                    <h3 style="margin-bottom: 20px; color: var(--gold);">🔗 روابط التواصل</h3>
+                    <div class="settings-grid">
+                        <div class="form-field">
+                            <label>🎧 رابط الدعم الفني (تواصل)</label>
+                            <input type="url" id="support_url" placeholder="https://t.me/YARD_SUPPORT">
+                        </div>
+                        <div class="form-field">
+                            <label>📢 رابط قناة الدعوة</label>
+                            <input type="url" id="invite_url" placeholder="https://t.me/YARD_CHANNEL">
+                        </div>
+                    </div>
+                </div>
+                <div class="section-card" style="padding: 30px; margin-bottom:20px;">
+                    <h3 style="margin-bottom: 20px; color: var(--gold);">💰 إعدادات Binance Pay</h3>
+                    <div class="settings-grid">
+                        <div class="form-field">
+                            <label>محفظة Binance (ID أو رابط)</label>
+                            <input type="text" id="binance_wallet" placeholder="213456789">
+                        </div>
+                        <div class="form-field">
+                            <label>⭐ عدد النجوم لكل دولار</label>
+                            <input type="number" id="star_price" placeholder="50">
+                        </div>
+                        <div class="form-field full-width">
+                            <label>📋 تعليمات الإيداع (تظهر للعميل)</label>
+                            <textarea id="binance_info" placeholder="مثال: أرسل المبلغ للمحفظة وأرسل لقطة للدعم..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn-gold" style="padding: 16px 40px; font-size: 1rem;">
+                    <i class="fas fa-save"></i> حفظ جميع الإعدادات
+                </button>
+            </form>
+        </div>
+
+    </main>
+</div>
+
+<!-- Celebrity Modal -->
+<div id="celebModal" class="modal">
+    <div class="modal-box">
+        <h3 id="celebModalTitle">➕ إضافة مشهور جديد</h3>
+        <form id="saveCelebForm" class="modal-form">
+            <input type="hidden" id="celebId">
+            <input type="text" id="celebName" placeholder="اسم المشهور *" required>
+            <input type="number" id="celebPrice" placeholder="السعر بالدولار *" step="0.01" required>
+            <input type="url" id="celebImage" placeholder="رابط الصورة *" required>
+            <input type="url" id="celebFile" placeholder="رابط ملف المحتوى *" required>
+            <div class="modal-actions">
+                <button type="submit" class="btn-gold">💾 حفظ</button>
+                <button type="button" class="btn-ghost" onclick="closeModal('celebModal')">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="modal">
+    <div class="modal-box">
+        <h3>➕ إضافة وسيلة دفع</h3>
+        <form id="savePaymentForm" class="modal-form">
+            <input type="text" id="payName" placeholder="اسم الوسيلة *" required>
+            <select id="payType" style="background:#1a1a2e; border:1px solid var(--border); padding:13px; border-radius:12px; color:#fff;">
+                <option value="manual">يدوي (تحويل)</option>
+                <option value="stars">نجوم تلجرام</option>
+            </select>
+            <textarea id="payInstructions" placeholder="تعليمات الدفع للعميل"></textarea>
+            <div class="modal-actions">
+                <button type="submit" class="btn-gold">💾 حفظ</button>
+                <button type="button" class="btn-ghost" onclick="closeModal('paymentModal')">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="modal">
+    <div class="modal-box">
+        <h3>❌ سبب الرفض</h3>
+        <form id="rejectOrderForm" class="modal-form">
+            <input type="hidden" id="rejectOrderId">
+            <textarea id="rejectReason" placeholder="اذكر سبب الرفض..." required style="min-height:100px;"></textarea>
+            <div class="modal-actions">
+                <button type="submit" class="btn-danger" style="flex:1; padding:12px;">رفض الطلب</button>
+                <button type="button" class="btn-ghost" onclick="closeModal('rejectModal')">تراجع</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="admin.js"></script>
+<script>
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const icon = document.getElementById('hamburgerIcon');
+        const isOpen = sidebar.classList.toggle('open');
+        overlay.classList.toggle('active', isOpen);
+        icon.className = isOpen ? 'fas fa-times' : 'fas fa-bars';
+    }
+    function closeSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const icon = document.getElementById('hamburgerIcon');
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        icon.className = 'fas fa-bars';
+    }
+    // Close sidebar on nav click (mobile)
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (window.innerWidth <= 768) closeSidebar();
+        });
+    });
+</script>
+</body>
+</html>
