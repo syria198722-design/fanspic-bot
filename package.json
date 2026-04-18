@@ -1,6 +1,14 @@
 {
+  "name": "fanspic-bot",
+  "version": "1.0.0",
+  "description": "Fanspic Media Platform Bot and Web",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "build": "echo no build required"
+  },
   "dependencies": {
-    "firebase-admin": "^13.8.0",
+    "firebase-admin": "^13.0.0",
     "telegraf": "^4.16.3"
   }
 }
