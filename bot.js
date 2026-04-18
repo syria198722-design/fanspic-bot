@@ -2,42 +2,38 @@ const { Telegraf, Markup } = require('telegraf');
 const admin = require('firebase-admin');
 
 console.log("-----------------------------------------");
-console.log("🚀 جاري بدء تشغيل البوت المطور V3 (نسخة النجوم)...");
+console.log("🚀 جاري بدء تشغيل البوت المطور V3 Pro (نسخة النجوم)...");
 
-// 1. Firebase Initialization
+// 1. Firebase Initialization with Error Handling
 const serviceAccount = require("./serviceAccountKey.json");
 if (!admin.apps.length) {
     admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+        credential: admin.credential.cert(serviceAccount),
+        // هذا السطر يمنع أخطاء الـ Retries المزعجة
+        firestore: { ignoreUndefinedProperties: true }
     });
 }
 const db = admin.firestore();
 
 // 2. Bot Initialization
 const bot = new Telegraf('8419083555:AAHaMuIdIS5VvQ5U_uKtdeAsiH8NQT931yI');
-const ADMIN_ID = '7228104866'; 
+const ADMIN_ID = '7228104866';
 
-// --- Stars Purchase Request Watcher ---
+// --- Celebrity Content Notification Watcher ---
 db.collection('celebrities').where('notify', '==', true).onSnapshot(snap => {
     snap.docChanges().forEach(async (change) => {
         if (change.type !== 'added') return;
 
         const celeb = change.doc.data();
         const celebId = change.doc.id;
-        console.log(`📺 محتوى جديد: ${celeb.name} - جاري إشعار المشتركين...`);
+        console.log(`📺 محتوى جديد: ${celeb.name} - جاري التحضير للبث...`);
 
         try {
-            // جلب جميع المستخدمين المسجلين
             const usersSnap = await db.collection('users').get();
             const starPrice = Math.round((celeb.price_usd || 0) * 50);
-            const caption = `✨ محتوى جديد وحصري!
+            const caption = `✨ *محتوى جديد وحصري!*\n\n👤 المشهور: *${celeb.name}*\n💰 السعر: *${celeb.price_usd} $* (${starPrice} ⭐)\n\n👾 بادر بالشراء الآن عبر المنصة!`;
 
-👤 المشهور: *${celeb.name}*
-💰 السعر: *${celeb.price_usd} $* (${starPrice} ⭐)
-
-👾 بادر بالشراء قبل النفاد!`;
-
-            let sent = 0, failed = 0;
+            let sent = 0;
             for (const userDoc of usersSnap.docs) {
                 const userId = userDoc.id;
                 try {
@@ -46,60 +42,48 @@ db.collection('celebrities').where('notify', '==', true).onSnapshot(snap => {
                         parse_mode: 'Markdown',
                         reply_markup: {
                             inline_keyboard: [[
-                                { text: '🏪 فتح المتجر واشتري', web_app: { url: 'https://fanspic1.web.app/' } }
+                                { text: '🏪 فتح المتجر والاشتراك', web_app: { url: 'https://fanspic1.web.app/' } }
                             ]]
                         }
                     });
                     sent++;
+                    // تأخير ذكي (100ms) لمنع الحظر (Spam Protection)
+                    await new Promise(r => setTimeout(r, 100));
                 } catch (e) {
-                    failed++; // المستخدم قد حظر البوت
+                    // تجاهل المستخدمين الذين حظروا البوت صمتاً
                 }
-                // تأخير بسيط لتجنب حظر تلجرام للإرسال المتتابع
-                await new Promise(r => setTimeout(r, 50));
             }
 
             console.log(`✅ إشعار ${celeb.name}: أرسل لـ ${sent} مستخدم`);
-
-            // إتمام: تحديث العلامة لكي لا ينبه مرة أخرى
             await db.collection('celebrities').doc(celebId).update({ notify: false });
-
-            // إشعار المدير
-            bot.telegram.sendMessage(ADMIN_ID, `📣 تم بث إشعار محتوى "${celeb.name}"\n✅ أرسل لـ: ${sent} مشترك`);
+            bot.telegram.sendMessage(ADMIN_ID, `📣 تم بث إشعار "${celeb.name}"\n✅ استلم الرسالة: ${sent} مشترك`);
         } catch (err) {
-            console.error('❌ خطأ في البث:', err.message);
+            console.error('❌ خطأ في نظام البث:', err.message);
         }
     });
-});
+}, err => console.error("❌ Firestore Watcher Error:", err.message));
 
 // --- Stars Purchase Request Watcher ---
 db.collection('stars_purchase').where('status', '==', 'pending').onSnapshot(snap => {
     snap.docChanges().forEach(async (change) => {
-        if (change.type === 'added') {
-            const req = change.doc.data();
-            const docId = change.doc.id;
-            
-            console.log(`📦 معالجة شراء: ${req.celebrity_name} بقيمة ${req.amount} نجمة`);
+        if (change.type !== 'added') return;
+        const req = change.doc.data();
+        const docId = change.doc.id;
 
-            try {
-                // تبسيط البيانات (Payload) لأقصى درجة لتجنب خطأ تلجرام
-                const shortPayload = `PURCHASE|${docId}|${req.amount}|${req.celebrity_id}`;
-
-                await bot.telegram.sendInvoice(req.user_id, {
-                    title: `اسم المنتج: ${req.celebrity_name}`,
-                    description: `شراء المحتوى الحصري لـ ${req.celebrity_name}`,
-                    payload: shortPayload, // بيانات مختصرة جداً
-                    provider_token: "", 
-                    currency: "XTR",
-                    prices: [{ label: "Stars", amount: parseInt(req.amount) }]
-                });
-
-                console.log(`✅ أرسلت الفاتورة للمستخدم ${req.user_id}`);
-                await db.collection('stars_purchase').doc(docId).update({ status: 'sent' });
-
-            } catch (err) {
-                console.error("❌ خطأ تلجرام:", err.message);
-                await db.collection('stars_purchase').doc(docId).update({ status: 'failed', error: err.message });
-            }
+        try {
+            const shortPayload = `PURCHASE|${docId}|${req.amount}|${req.celebrity_id}`;
+            await bot.telegram.sendInvoice(req.user_id, {
+                title: `شراء محتوى: ${req.celebrity_name}`,
+                description: `المحتوى الحصري لـ ${req.celebrity_name}`,
+                payload: shortPayload,
+                provider_token: "",
+                currency: "XTR",
+                prices: [{ label: "Stars", amount: parseInt(req.amount) }]
+            });
+            await db.collection('stars_purchase').doc(docId).update({ status: 'sent' });
+        } catch (err) {
+            console.error("❌ خطأ فاتورة الشراء:", err.message);
+            await db.collection('stars_purchase').doc(docId).update({ status: 'failed', error: err.message });
         }
     });
 });
@@ -107,73 +91,72 @@ db.collection('stars_purchase').where('status', '==', 'pending').onSnapshot(snap
 // --- Stars Recharge Request Watcher ---
 db.collection('stars_recharge').where('status', '==', 'pending').onSnapshot(snap => {
     snap.docChanges().forEach(async (change) => {
-        if (change.type === 'added') {
-            const req = change.doc.data();
-            const docId = change.doc.id;
-            
-            try {
-                const shortPayload = `RECHARGE|${docId}|${req.amount}`;
-                await bot.telegram.sendInvoice(req.user_id, {
-                    title: `شحن رصيد: ${req.amount} نجمة`,
-                    description: `إضافة نجوم لحسابك في YARD Exclusive`,
-                    payload: shortPayload,
-                    provider_token: "",
-                    currency: "XTR",
-                    prices: [{ label: "Stars", amount: parseInt(req.amount) }]
-                });
-                await db.collection('stars_recharge').doc(docId).update({ status: 'sent' });
-            } catch (err) { console.error("❌ خطأ الشحن:", err.message); }
-        }
+        if (change.type !== 'added') return;
+        const req = change.doc.data();
+        const docId = change.doc.id;
+
+        try {
+            const shortPayload = `RECHARGE|${docId}|${req.amount}`;
+            await bot.telegram.sendInvoice(req.user_id, {
+                title: `شحن رصيد: ${req.amount} نجمة`,
+                description: `إضافة نجوم لحسابك في Fanspic`,
+                payload: shortPayload,
+                provider_token: "",
+                currency: "XTR",
+                prices: [{ label: "Stars", amount: parseInt(req.amount) }]
+            });
+            await db.collection('stars_recharge').doc(docId).update({ status: 'sent' });
+        } catch (err) { console.error("❌ خطأ فاتورة الشحن:", err.message); }
     });
 });
 
-// --- Checkout Handlers ---
+// --- Payment Handlers ---
 bot.on('pre_checkout_query', (ctx) => ctx.answerPreCheckoutQuery(true));
 
 bot.on('successful_payment', async (ctx) => {
-    const payloadStr = ctx.message.successful_payment.invoice_payload;
-    const parts = payloadStr.split('|'); // تفكيك البيانات المختصرة
-    const type = parts[0]; 
-    const amount = parseInt(parts[2]);
-
-    console.log(`💰 تم استلام دفع بنجاح: ${type} لعام ${amount} نجمة`);
-
-    if (type === 'RECHARGE') {
+    try {
+        const payloadStr = ctx.message.successful_payment.invoice_payload;
+        const parts = payloadStr.split('|');
+        const type = parts[0];
+        const amount = parseInt(parts[2]);
         const userId = ctx.from.id.toString();
-        await db.collection('users').doc(userId).set({
-            balance: admin.firestore.FieldValue.increment(amount)
-        }, { merge: true });
-        ctx.reply(`🎉 تم شحن رصيدك بـ ${amount} نجمة بنجاح!`);
-    } 
-    else if (type === 'PURCHASE') {
-        const celebId = parts[3];
-        const celebDoc = await db.collection('celebrities').doc(celebId).get();
-        const celebName = celebDoc.exists ? celebDoc.data().name : "محتوى حصري";
 
-        await db.collection('orders').add({
-            user_id: ctx.from.id.toString(),
-            user_name: ctx.from.first_name,
-            celebrity_name: celebName,
-            price: amount / 50,
-            status: 'approved',
-            payment_method: 'Telegram Stars',
-            created_at: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        ctx.reply(`✅ مبروك! تم شراء محتوى ${celebName} بنجاح.`);
-        bot.telegram.sendMessage(ADMIN_ID, `💰 بيع ناجح بالنجوم!\n👤 ${ctx.from.first_name}\n💎 ${amount} نجمة`);
+        if (type === 'RECHARGE') {
+            await db.collection('users').doc(userId).set({
+                balance: admin.firestore.FieldValue.increment(amount)
+            }, { merge: true });
+            ctx.reply(`🎉 تم شحن رصيدك بـ ${amount} نجمة بنجاح!`);
+        }
+        else if (type === 'PURCHASE') {
+            const celebId = parts[3];
+            await db.collection('orders').add({
+                user_id: userId,
+                user_name: ctx.from.first_name,
+                celebrity_id: celebId,
+                amount: amount,
+                status: 'approved',
+                payment_method: 'Telegram Stars',
+                created_at: admin.firestore.FieldValue.serverTimestamp()
+            });
+            ctx.reply(`✅ مبروك! تم شراء المحتوى بنجاح. يمكنك مشاهدته الآن في المنصة.`);
+            bot.telegram.sendMessage(ADMIN_ID, `💰 مبيعات جديدة!\n👤 ${ctx.from.first_name}\n💎 ${amount} نجمة`);
+        }
+    } catch (err) {
+        console.error("❌ خطأ أثناء تأكيد الدفع:", err.message);
     }
 });
 
+// --- Launch Bot ---
 bot.launch().then(() => {
-    console.log("🚀 البوت V3 يعمل الآن! (جاهز لاستقبال النجوم بدون أخطاء)");
+    console.log("🟢 البوت V3 Pro يعمل الآن بكفاءة (Fanspic Online)");
 }).catch(err => {
     if (err.message.includes("409")) {
-        console.error("❌ خطأ: هناك نسخة أخرى تعمل من البوت. يرجى إغلاقها والانتظار 10 ثوانٍ.");
+        console.error("⚠️ تحذير: نسخة أخرى تعمل. يرجى الانتظار ثوانٍ...");
     } else {
-        console.error("❌ خطأ في البدء:", err.message);
+        console.error("❌ فشل بدء البوت:", err.message);
     }
 });
 
+// Graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
